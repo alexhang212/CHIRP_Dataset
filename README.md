@@ -1,4 +1,4 @@
-# [CVPR2026] CHIRP dataset: Combining beHaviour, Individual Re-identification and Postures
+# [CVPR 2026] CHIRP dataset: towards long-term, individual-level, behavioral monitoring of bird populations in the wild
 
 <!-- banner -->
 ![Dataset Summary](images/banner.jpeg)
@@ -22,10 +22,10 @@ CHIRP is a dataset on Siberian Jays (*Perisoreus infaustus*) living in the Swedi
 Click the links above to access detailed description of each dataset!
 
 
-## Application specific Benchmark
+## Application Specific Benchmark
 **We highly encourage researchers to report this in addition to task-specific benchmarks!**
 
-One novelty with the CHIRP datasets is that on top of task-specific benchmarking (e.g 2D keypoints estimation, object detection, re-id etc), we encourage researchers to apply new algorithms in our application specific dataset, to determine how improvements in the algorithms will affect downstream biological measurements like feed rates and co-occurence rates.
+One contribution of the CHIRP datasets is that on top of task-specific benchmarking (e.g 2D keypoints estimation, object detection, re-id accuracies etc), we encourage researchers to apply new algorithms in our application specific dataset, to determine how improvements in the algorithms will affect downstream biological measurements like feed rates and co-occurence rates.
 
 For details of how to do the benchmarking procedure and data requirements, we refer to **[ApplicationSpecific/README.md](ApplicationSpecific/README.md)** 
 
