@@ -46,6 +46,11 @@ For all models and pipelines benchmarked in the publication, inference files are
 ### Inference Result Files
 For each algorithm combination, you need three files per video:
 
+
+#### Tracked Bounding Boxes (`{video}_TrackedBBox_{tracker}.csv`)
+CSV file with tracking results:
+- Columns: `Frame`, `ID`, `Xmin`, `Ymin`, `Xmax`, `Ymax`
+
 #### Behavior Dictionary (`{video}_BehavDict_{model}_{tracker}.p`)
 Python pickle file containing behavior predictions:
 ```python
@@ -59,10 +64,6 @@ Python pickle file containing behavior predictions:
     ...
 }
 ```
-
-#### Tracked Bounding Boxes (`{video}_TrackedBBox_{tracker}.csv`)
-CSV file with tracking results:
-- Columns: `Frame`, `ID`, `Xmin`, `Ymin`, `Xmax`, `Ymax`
 
 #### ID Matching (`{video}_{id_algo}_IDMatch_{tracker}.p`)
 Python pickle file mapping tracks to ground truth IDs:
@@ -81,6 +82,14 @@ The script processes these specific validation videos:
 - `20221009_impossible` 
 - `20210914_baggins`
 - `20211018_impossile`
+- `20210909_granmyran`
+- `20210922_fello`
+- `20220816_sodraguortes`
+- `20220829_bengt`
+- `20220901_impossible`
+- `20221004_guorbatjakka`
+- `20221015_djay_2`
+- `20220922_mader`
 
 ## Command Line Arguments
 
@@ -143,7 +152,7 @@ The script generates several output files for each algorithm combination:
 
 ### 4. Frame Accuracy
 - **Percentage Correct**: Frames with correct bird identification and location
-- **IoU Threshold**: 0.5 for bounding box matching
+- **BBox overlap Threshold**: 0.5 of ground truth bbox to be a match
 
 ## Performance Rankings
 

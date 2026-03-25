@@ -16,6 +16,12 @@ warnings.filterwarnings('ignore')
 _data_cache = {}
 
 
+ValidationVideos =['20210909_OiFHBq_1', '20210909_CFfo1Z', '20210914_h0h9CW',
+                   '20210922_GWDswk', '20211018_WS3GWi', '20220816_RB15Aq', 
+                   '20220829_BrmjDE', '20220901_WS3GWi', 
+                   '20220922_ebqkf4', '20221004_ukRCut', '20221009_WS3GWi', 
+                   '20221015_csG6Ba_2']
+
 def load_data(file_path):
     """Load data from CSV or pickle file based on extension with caching"""
     if file_path in _data_cache:
@@ -67,9 +73,7 @@ def discover_algorithm_combinations(inference_dir):
     
     Returns:
         list: List of (model_name, id_algo, tracker) tuples
-    """
-    ValidationVideos = ['20210909_fyra_1', "20221009_impossible", "20210914_baggins", "20211018_impossile"]
-    
+    """    
     # Patterns to extract algorithm names
     behav_pattern = r'.*_BehavDict_(.+)_(.+)\.p$'
     id_pattern = r'.*_(.+)_IDMatch_(.+)\.p$'
@@ -128,7 +132,6 @@ def find_inference_files(inference_dir, model_name, id_algo, tracker):
     Returns:
         dict: {video_name: {'behav_dict': path, 'tracked_bbox': path, 'id_match': path}}
     """
-    ValidationVideos = ['20210909_fyra_1', "20221009_impossible", "20210914_baggins", "20211018_impossile"]
     
     found_files = {}
     
@@ -223,8 +226,10 @@ def create_summary_csv(output_dir, human_benchmark_data=None, random_benchmark_d
                 with open(summary_file, 'rb') as f:
                     summary_metrics = pickle.load(f)
                 frame_correct = list(summary_metrics["PerFramePercentageCorrect"].values())[0]
+                track_correct = list(summary_metrics["TrackPercentageCorrect"].values())[0] if "TrackPercentageCorrect" in summary_metrics else np.nan
             else:
                 frame_correct = np.nan
+                track_correct = np.nan
             
             # Load peck rate metrics
             peck_rate_file = metrics_file.replace("_metrics.pkl", "_peck_rates.csv")
@@ -275,28 +280,29 @@ def create_summary_csv(output_dir, human_benchmark_data=None, random_benchmark_d
                 
                 # Frame accuracy metrics
                 "PerFrame_Percentage_Correct": frame_correct,
-                
+                "Track_Percentage_Correct": track_correct,
+
                 # Feed rate metrics
                 "Mean_FeedRate_AbsError": mean_peck_error,
                 "Median_FeedRate_AbsError": median_peck_error,
                 "Std_FeedRate_AbsError": std_peck_error,
                 "FeedRate_Correlation": peck_correlation,
                 "Total_FeedRate_Measurements": total_peck_measurements,
-                
+
                 # Social interaction (PropTime) metrics
                 "Mean_PropTime_AbsError": mean_proptime_error,
                 "Median_PropTime_AbsError": median_proptime_error,
                 "Std_PropTime_AbsError": std_proptime_error,
                 "PropTime_Correlation": proptime_correlation,
                 "Total_PropTime_Measurements": total_proptime_measurements,
-                
+
                 # Behavior classification metrics
                 "Mean_Peck_Precision": mean_precision,
                 "Mean_Peck_Recall": mean_recall,
                 "Mean_Peck_F1": mean_f1,
                 "Total_Behavior_Measurements": total_behavior_measurements
             }
-            
+
             summary_data.append(summary_row)
             
         except Exception as e:
@@ -346,28 +352,29 @@ def create_summary_csv(output_dir, human_benchmark_data=None, random_benchmark_d
             
             # Frame accuracy metrics
             "PerFrame_Percentage_Correct": frame_accuracy,
-            
+            "Track_Percentage_Correct": np.nan,
+
             # Feed rate metrics
             "Mean_FeedRate_AbsError": mean_peck_error,
             "Median_FeedRate_AbsError": median_peck_error,
             "Std_FeedRate_AbsError": std_peck_error,
             "FeedRate_Correlation": peck_correlation,
             "Total_FeedRate_Measurements": total_peck_measurements,
-            
+
             # Social interaction (PropTime) metrics
             "Mean_PropTime_AbsError": mean_proptime_error,
             "Median_PropTime_AbsError": median_proptime_error,
             "Std_PropTime_AbsError": std_proptime_error,
             "PropTime_Correlation": proptime_correlation,
             "Total_PropTime_Measurements": total_proptime_measurements,
-            
+
             # Behavior classification metrics (not available for human benchmark)
             "Mean_Peck_Precision": mean_precision,
             "Mean_Peck_Recall": mean_recall,
             "Mean_Peck_F1": mean_f1,
             "Total_Behavior_Measurements": total_behavior_measurements
         }
-        
+
         summary_data.append(human_summary)
         print("✅ Added human benchmark data to summary")
     
@@ -433,7 +440,8 @@ def create_summary_csv(output_dir, human_benchmark_data=None, random_benchmark_d
                 
                 # Frame accuracy metrics
                 "PerFrame_Percentage_Correct": combo_data['frame_accuracy'],
-                
+                "Track_Percentage_Correct": np.nan,
+
                 # Feed rate metrics
                 "Mean_FeedRate_AbsError": mean_peck_error,
                 "Median_FeedRate_AbsError": median_peck_error,
@@ -476,7 +484,7 @@ def create_summary_csv(output_dir, human_benchmark_data=None, random_benchmark_d
     
     # Create a simplified ranking summary
     ranking_df = summary_df[['Combination', 'ID_Algorithm', 'Tracker', 'Behavior_Model',
-                            'PerFrame_Percentage_Correct',
+                            'PerFrame_Percentage_Correct', 'Track_Percentage_Correct',
                             'Mean_FeedRate_AbsError', 'FeedRate_Correlation',
                             'Mean_PropTime_AbsError', 'PropTime_Correlation',
                             'Mean_Peck_Precision', 'Mean_Peck_Recall', 'Mean_Peck_F1']].copy()
@@ -691,48 +699,36 @@ def GetRandomBench(HumanDir):
 
 
 def get_bbox_overlap_vectorized(boxes1, boxes2):
-    """Optimized vectorized IoU calculation for multiple bounding boxes
-    
+    """Vectorized bounding box overlap calculation (intersection / area of boxes1)
+
     Args:
         boxes1: numpy array of shape (N, 4) with format [xmin, ymin, xmax, ymax]
         boxes2: numpy array of shape (M, 4) with format [xmin, ymin, xmax, ymax]
-    
+
     Returns:
-        numpy array of shape (N, M) with IoU values
+        numpy array of shape (N, M) with overlap values (intersection / area of box1)
     """
     if len(boxes1) == 0 or len(boxes2) == 0:
         return np.array([])
-    
-    # Use float32 for better performance
+
     boxes1 = boxes1.astype(np.float32)
     boxes2 = boxes2.astype(np.float32)
-    
+
     # Expand dimensions for broadcasting
     boxes1 = np.expand_dims(boxes1, axis=1)  # (N, 1, 4)
     boxes2 = np.expand_dims(boxes2, axis=0)  # (1, M, 4)
-    
-    # Calculate intersection coordinates
-    x1 = np.maximum(boxes1[:, :, 0], boxes2[:, :, 0])
-    y1 = np.maximum(boxes1[:, :, 1], boxes2[:, :, 1])
-    x2 = np.minimum(boxes1[:, :, 2], boxes2[:, :, 2])
-    y2 = np.minimum(boxes1[:, :, 3], boxes2[:, :, 3])
-    
-    # Early termination for no overlap
-    no_overlap = (x1 >= x2) | (y1 >= y2)
-    
-    # Calculate intersection area
-    intersection = np.maximum(0, x2 - x1) * np.maximum(0, y2 - y1)
-    intersection[no_overlap] = 0
-    
-    # Calculate areas
+
+    # Calculate intersection dimensions
+    dx = np.minimum(boxes1[:, :, 2], boxes2[:, :, 2]) - np.maximum(boxes1[:, :, 0], boxes2[:, :, 0])
+    dy = np.minimum(boxes1[:, :, 3], boxes2[:, :, 3]) - np.maximum(boxes1[:, :, 1], boxes2[:, :, 1])
+
+    # Intersection area (zero where no overlap)
+    intersection = np.where((dx >= 0) & (dy >= 0), dx * dy, 0.0)
+
+    # Area of boxes1
     area1 = (boxes1[:, :, 2] - boxes1[:, :, 0]) * (boxes1[:, :, 3] - boxes1[:, :, 1])
-    area2 = (boxes2[:, :, 2] - boxes2[:, :, 0]) * (boxes2[:, :, 3] - boxes2[:, :, 1])
-    
-    # Calculate union and IoU with safe division
-    union = area1 + area2 - intersection
-    iou = np.divide(intersection, union, out=np.zeros_like(intersection), where=union>0)
-    
-    return iou
+
+    return np.divide(intersection, area1, out=np.zeros_like(intersection), where=area1 > 0)
 
 
 def compute_feed_rates_optimized(GTBehav, BehavDict, IDMatch, VideoMinutes):
@@ -863,46 +859,61 @@ def compute_behavior_metrics_optimized(GTBehav, BehavDict, IDMatch, VideoLength)
 
 
 def compute_frame_accuracy_optimized(GTBBox, TrackedBBox, IDMatch):
-    """Optimized frame accuracy calculation - percentage correct across entire video"""
+    """Frame accuracy calculation returning per-frame and track-wise accuracy.
+
+    Returns:
+        per_frame_accuracy: fraction of frames where the correct bird is detected
+        track_accuracy: fraction of tracks where >80% of frames are correct
+    """
     # Prepare data
     GTBBox["RealID"] = GTBBox["ID"].str.split("_").str[0]
     GTBBox = GTBBox[GTBBox["RealID"] != "unknown"].copy()
-    
+
     TrackedBBox["RealID"] = TrackedBBox["ID"].map(IDMatch).fillna(np.nan)
-    TrackedBBox = TrackedBBox.dropna(subset=["RealID"]).copy()
-    
-    # Group pred data by frame for efficient lookup
+    # TrackedBBox = TrackedBBox.dropna(subset=["RealID"]).copy()
+
     pred_by_frame = TrackedBBox.groupby("Frame")
-    
-    total_correct_frames = 0
-    total_frames = 0
-    
+
+    OverallTally = []   # 1 per track: was >80% of its frames correct?
+    PerFrameTally = []  # 1 per frame: was this frame correct?
+
     for track_id in GTBBox["ID"].unique():
         track_data = GTBBox[GTBBox["ID"] == track_id]
         gt_real_id = track_data["RealID"].iloc[0]
-        
+
+        TallyList = []
+
         for _, gt_row in track_data.iterrows():
             frame = gt_row["Frame"]
             gt_box = np.array([gt_row["Xmin"], gt_row["Ymin"], gt_row["Xmax"], gt_row["Ymax"]])
-            
-            total_frames += 1
-            
-            if frame in pred_by_frame.groups:
-                pred_frame_data = pred_by_frame.get_group(frame)
-                pred_boxes = pred_frame_data[["Xmin", "Ymin", "Xmax", "Ymax"]].values
-                pred_ids = pred_frame_data["RealID"].values
-                
-                if len(pred_boxes) > 0:
-                    # Vectorized IoU calculation
-                    ious = get_bbox_overlap_vectorized(gt_box.reshape(1, -1), pred_boxes)[0]
-                    best_match_idx = np.argmax(ious)
-                    
-                    if ious[best_match_idx] > 0.5 and pred_ids[best_match_idx] == gt_real_id:
-                        total_correct_frames += 1
-    
-    # Return overall video accuracy as a single value
-    overall_accuracy = total_correct_frames / total_frames if total_frames > 0 else 0
-    return overall_accuracy
+
+            if frame not in pred_by_frame.groups:
+                TallyList.append(0)
+                continue
+
+            pred_frame_data = pred_by_frame.get_group(frame)
+            pred_boxes = pred_frame_data[["Xmin", "Ymin", "Xmax", "Ymax"]].values
+            pred_ids = pred_frame_data["RealID"].values
+
+            if len(pred_boxes) == 0:
+                TallyList.append(0)
+                continue
+
+            overlaps = get_bbox_overlap_vectorized(gt_box.reshape(1, -1), pred_boxes)[0]
+            overlap_indices = np.where(overlaps > 0.5)[0]
+
+            if len(overlap_indices) == 0:
+                TallyList.append(0)
+                continue
+
+            pred_id = pred_ids[overlap_indices[0]]
+            TallyList.append(1 if pred_id == gt_real_id else 0)
+
+        if len(TallyList) > 0:
+            OverallTally.append(1 if sum(TallyList) / len(TallyList) > 0.8 else 0)
+            PerFrameTally.extend(TallyList)
+
+    return PerFrameTally, OverallTally
 
 
 def compute_metrics(inference_files, MetaDF, GTDataDir, 
@@ -917,7 +928,8 @@ def compute_metrics(inference_files, MetaDF, GTDataDir,
     all_peck_data = []
     all_proptime_data = []
     all_behavior_data = []
-    all_track_data = []
+    all_frame_accuracies = []
+    all_track_accuracies = []
     
     for vid in ValidationVideos:
         print(f"Processing {vid}...")
@@ -938,8 +950,11 @@ def compute_metrics(inference_files, MetaDF, GTDataDir,
         peck_data = compute_feed_rates_optimized(GTBehav, BehavDict, IDMatch, VideoMinutes)
         proptime_data = compute_proptime_optimized(GTBBox.copy(), TrackedBBox.copy(), IDMatch, VideoLength)
         behavior_data = compute_behavior_metrics_optimized(GTBehav, BehavDict, IDMatch, VideoLength)
-        frame_accuracy = compute_frame_accuracy_optimized(GTBBox.copy(), TrackedBBox.copy(), IDMatch)
-        
+        frame_accuracy, track_accuracy = compute_frame_accuracy_optimized(GTBBox.copy(), TrackedBBox.copy(), IDMatch)
+
+        # import ipdb; ipdb.set_trace()
+
+
         # Add metadata to results
         for item in peck_data:
             item.update({"Video": vid, "Model": ModelName, "IDAlgo": IDType, 
@@ -957,23 +972,27 @@ def compute_metrics(inference_files, MetaDF, GTDataDir,
         all_peck_data.extend(peck_data)
         all_proptime_data.extend(proptime_data)
         all_behavior_data.extend(behavior_data)
-        all_track_data.append(frame_accuracy)
+        all_frame_accuracies.extend(frame_accuracy)
+        all_track_accuracies.extend(track_accuracy)
     
     # Convert to output format
     PeckRateOut = {i: data for i, data in enumerate(all_peck_data)}
     PropTimeOut = {i: data for i, data in enumerate(all_proptime_data)}
     BehavPrecisionRecall = {i: data for i, data in enumerate(all_behavior_data)}
     
-    # Compute overall frame accuracy
-    frame_correct = np.mean(all_track_data) if all_track_data else 0
-    
+    # Compute overall accuracies (averaged across videos)
+    frame_correct = np.mean(all_frame_accuracies) if all_frame_accuracies else 0
+    track_correct = np.mean(all_track_accuracies) if all_track_accuracies else 0
+
     PerFramePercentageCorrect = {SaveName: frame_correct}
-    
+    TrackPercentageCorrect = {SaveName: track_correct}
+
     return {
         "PeckRateOut": PeckRateOut,
-        "PropTimeOut": PropTimeOut, 
+        "PropTimeOut": PropTimeOut,
         "BehavPrecisionRecall": BehavPrecisionRecall,
-        "PerFramePercentageCorrect": PerFramePercentageCorrect
+        "PerFramePercentageCorrect": PerFramePercentageCorrect,
+        "TrackPercentageCorrect": TrackPercentageCorrect
     }
 
 
@@ -1010,7 +1029,7 @@ def main():
     if not combinations:
         print("No algorithm combinations found. Please check the inference directory.")
         return
-    
+        
     # Load metadata once
     print(f"Loading metadata from {metadata_csv}...")
     MetaDF = pd.read_csv(metadata_csv)
@@ -1039,7 +1058,14 @@ def main():
             continue
             
         print(f"Found inference files for {len(inference_files)} videos: {list(inference_files.keys())}")
-        
+
+        # Warn if not all 12 videos were found
+        if len(inference_files) != 12:
+            print(f"⚠️  WARNING: Expected 12 videos but found {len(inference_files)} videos for {id_algo}_{tracker}_{model_name}")
+            missing_videos = set(ValidationVideos) - set(inference_files.keys())
+            if missing_videos:
+                print(f"    Missing videos: {sorted(missing_videos)}")
+
         # Compute metrics
         print("Computing metrics...")
         try:
@@ -1070,14 +1096,16 @@ def main():
             
             # Save summary metrics
             summary_metrics = {
-                "PerFramePercentageCorrect": results["PerFramePercentageCorrect"]
+                "PerFramePercentageCorrect": results["PerFramePercentageCorrect"],
+                "TrackPercentageCorrect": results["TrackPercentageCorrect"]
             }
-            
+
             with open(os.path.join(args.output_dir, f"{output_prefix}_summary.pkl"), "wb") as f:
                 pickle.dump(summary_metrics, f)
-            
+
             print(f"✓ Results saved: {output_prefix}")
             print(f"  Per Frame Percentage Correct: {list(results['PerFramePercentageCorrect'].values())[0]:.3f}")
+            print(f"  Track Percentage Correct: {list(results['TrackPercentageCorrect'].values())[0]:.3f}")
             print(f"  Processed {len(results['PeckRateOut'])} peck rate measurements")
             print(f"  Processed {len(results['PropTimeOut'])} proportion time measurements")
             print(f"  Processed {len(results['BehavPrecisionRecall'])} behavior precision/recall measurements")
@@ -1100,7 +1128,6 @@ def main():
     if os.path.exists(human_dir):
         print(f"\n🧑 Computing human benchmark data from {human_dir}...")
         try:
-            ValidationVideos = ['20210909_fyra_1', "20221009_impossible", "20210914_baggins", "20211018_impossile"]
             human_benchmark_data = GetHumanBench(human_dir, gt_data_dir, ValidationVideos)
             print("✅ Human benchmark data computed successfully")
         except Exception as e:
