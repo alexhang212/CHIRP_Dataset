@@ -211,3 +211,4 @@ __marimo__/
 results
 *.mp4
 *.p
+.claude/
