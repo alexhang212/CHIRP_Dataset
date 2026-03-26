@@ -9,6 +9,8 @@ Alex Hoi Hang Chan, Neha Singhal, Onur Kocahan, Andrea Meltzer, Saverio Lubrano,
 ## Dataset Download
 Here is the download [link]() for the dataset.
 
+**[LINK IS CURRENTLY EMPTY, WILL BE READY IN A FEW DAYS -- Alex, March 26, 2026]**
+
 ## What is CHIRP?
 CHIRP is a dataset on Siberian Jays (*Perisoreus infaustus*) living in the Swedish Laplands. We the goal of long-tem individual level behavioural monitoring, we provide dataset for a diverse set of computer vision tasks:
 - [Video re-identification](docs/VideoReID.md) (182 individuals, 16,110 video clips)
@@ -28,6 +30,18 @@ Click the links above to access detailed description of each dataset!
 One contribution of the CHIRP datasets is that on top of task-specific benchmarking (e.g 2D keypoints estimation, object detection, re-id accuracies etc), we encourage researchers to apply new algorithms in our application specific dataset, to determine how improvements in the algorithms will affect downstream biological measurements like feed rates and co-occurence rates.
 
 For details of how to do the benchmarking procedure and data requirements, we refer to **[ApplicationSpecific/README.md](ApplicationSpecific/README.md)** 
+
+
+## Model Weights
+
+We provide a set of model weights that was part of the benchmarks provided in the manuscript.
+
+- C3D model (Action Recognition, with [mmaction2](https://mmaction2.readthedocs.io/en/latest/))
+- Vitpose-large and hrnet (2D keypoint estimation, with [mmpose](https://mmpose.readthedocs.io/en/latest/))
+- Mask2former model for rings (instance segmentation, with [mmdetection](https://mmdetection.readthedocs.io/en/latest/))
+- YOLOv8 model (object detection, with [ultralytics](https://www.ultralytics.com/))
+- CORVID random forest model (see [Application specific](ApplicationSpecific/README.md))
+
 
 ## Contact
 If you have any questions regarding the dataset, feel free to reach out to Alex Chan!

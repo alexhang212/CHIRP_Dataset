@@ -10,6 +10,12 @@ import sys
 
 
 N_DISPLAY_FRAMES = 8   # frames to sample from each 25-frame tracklet
+RING_COLOURS = [
+    (255,   0, 255),   # Ring-0: magenta
+    (  0, 255, 255),   # Ring-1: cyan
+    (  0, 165, 255),   # Ring-2: orange
+    (255, 255,   0),   # Ring-3: yellow
+]
 ColourDictionary = {
     'hd_bill_tip': (31, 119, 180), 'hd_bill_tiplower': (255, 127, 14),
     'hd_bill_base': (44, 160, 44), 'hd_eye_right': (214, 39, 40),
@@ -81,11 +87,35 @@ def load_masks_csv(csv_path):
     return mask_data
 
 
+def load_ring_masks_csv(csv_path):
+    """Load ring masks CSV (columns: img, Class, mask) indexed by image path.
+    Returns {img_path: [(class_label, contour_array), ...]}."""
+    df = pd.read_csv(csv_path)
+    ring_data = {}
+    for img_path, group in df.groupby("img"):
+        rings = []
+        for _, row in group.iterrows():
+            for contour in iter_mask_contours(json.loads(row["mask"])):
+                pts = np.array(contour, dtype=np.float32).reshape(-1, 2).astype(np.int32)
+                rings.append((row["Class"], pts))
+        ring_data[normalize_path_key(img_path)] = rings
+    return ring_data
+
+
 def draw_keypoints(img, keypoints):
     """Draw keypoints from a list of (keypoint_name, x, y, conf) tuples."""
     for kp_name, x, y, conf in keypoints:
         if conf > 0 and kp_name in ColourDictionary:
             cv2.circle(img, (int(x), int(y)), 5, ColourDictionary[kp_name], -1)
+    return img
+
+
+def draw_ring_masks(img, ring_contours):
+    """Draw ring segmentation masks as coloured polygon outlines."""
+    for class_label, pts in ring_contours:
+        idx = int(class_label.split('-')[-1]) if '-' in class_label else 0
+        colour = RING_COLOURS[idx % len(RING_COLOURS)]
+        cv2.polylines(img, [pts], isClosed=True, color=colour, thickness=2)
     return img
 
 
@@ -101,9 +131,10 @@ def draw_masks(img, contours):
 
 
 def load_video_overlays(video_dir, show_kp, show_mask):
-    """Load optional video-level keypoint and mask overlays."""
+    """Load optional video-level keypoint, mask, and ring mask overlays."""
     kp_data = {}
     mask_data = {}
+    ring_mask_data = {}
 
     if show_kp:
         kp_path = os.path.join(video_dir, "keypoints.csv")
@@ -114,11 +145,14 @@ def load_video_overlays(video_dir, show_kp, show_mask):
         mask_path = os.path.join(video_dir, "masks.csv")
         if os.path.exists(mask_path):
             mask_data = load_masks_csv(mask_path)
+        ring_path = os.path.join(video_dir, "masks_ring.csv")
+        if os.path.exists(ring_path):
+            ring_mask_data = load_ring_masks_csv(ring_path)
 
-    return kp_data, mask_data
+    return kp_data, mask_data, ring_mask_data
 
 
-def load_tracklet_frames(tracklet_dir, reid_dir, kp_data=None, mask_data=None, n=N_DISPLAY_FRAMES):
+def load_tracklet_frames(tracklet_dir, reid_dir, kp_data=None, mask_data=None, ring_mask_data=None, n=N_DISPLAY_FRAMES):
     """Load n evenly-spaced frames from a tracklet directory, with optional overlays."""
     frame_paths = sorted([
         os.path.join(tracklet_dir, f)
@@ -136,6 +170,8 @@ def load_tracklet_frames(tracklet_dir, reid_dir, kp_data=None, mask_data=None, n
             frame_key = normalize_path_key(os.path.relpath(frame_path, reid_dir))
             if mask_data and frame_key in mask_data:
                 img = draw_masks(img, mask_data[frame_key])
+            if ring_mask_data and frame_key in ring_mask_data:
+                img = draw_ring_masks(img, ring_mask_data[frame_key])
             if kp_data and frame_key in kp_data:
                 img = draw_keypoints(img, kp_data[frame_key])
             frames.append(img)
@@ -153,8 +189,8 @@ def make_strip(frames, target_h=240):
 
 
 def visualize_tracklet(bird_id, video_territory, tracklet_name, tracklet_dir, reid_dir,
-                       annot_df, kp_data, mask_data):
-    frames = load_tracklet_frames(tracklet_dir, reid_dir, kp_data, mask_data)
+                       annot_df, kp_data, mask_data, ring_mask_data):
+    frames = load_tracklet_frames(tracklet_dir, reid_dir, kp_data, mask_data, ring_mask_data)
     if not frames:
         print(f"No frames in {tracklet_dir}")
         return "next"
@@ -231,15 +267,16 @@ def main(reid_dir, show_kp, show_mask):
     current_video_dir = None
     kp_data = {}
     mask_data = {}
+    ring_mask_data = {}
 
     for bird_id, video_territory, tracklet_name, tracklet_dir in tracklets:
         video_dir = os.path.dirname(tracklet_dir)
         if video_dir != current_video_dir:
-            kp_data, mask_data = load_video_overlays(video_dir, show_kp, show_mask)
+            kp_data, mask_data, ring_mask_data = load_video_overlays(video_dir, show_kp, show_mask)
             current_video_dir = video_dir
 
         result = visualize_tracklet(bird_id, video_territory, tracklet_name,
-                                    tracklet_dir, reid_dir, annot_df, kp_data, mask_data)
+                                    tracklet_dir, reid_dir, annot_df, kp_data, mask_data, ring_mask_data)
         if result == "quit":
             break
 
