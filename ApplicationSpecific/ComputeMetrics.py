@@ -1002,7 +1002,8 @@ def main():
     parser.add_argument('--inference_dir', required=True, help='Directory containing inference result files')
     parser.add_argument('--output_dir', default='./results', help='Output directory for results')
     parser.add_argument('--force', action='store_true', default=False, help='Force recomputation even if results exist')
-    
+    parser.add_argument('--plot', action='store_true', default=False, help='Plot benchmark results after computing metrics')
+
     args = parser.parse_args()
     
     # Construct paths from dataset_path
@@ -1152,6 +1153,228 @@ def main():
     
     # Create comprehensive summary CSV from all results
     create_summary_csv(args.output_dir, human_benchmark_data, random_benchmark_data)
+
+    if args.plot:
+        plot_results(args.output_dir)
+
+
+def plot_results(output_dir):
+    """
+    Plot benchmark results from all *_peck_rates.csv and *_proptime.csv files
+    in output_dir. Produces a 4-panel figure and saves it to output_dir.
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.cm as cm
+
+    # ------------------------------------------------------------------
+    # Load all result CSVs
+    # ------------------------------------------------------------------
+    peck_dfs = []
+    for path in glob.glob(os.path.join(output_dir, "*_peck_rates.csv")):
+        df = pd.read_csv(path)
+        peck_dfs.append(df)
+
+    proptime_dfs = []
+    for path in glob.glob(os.path.join(output_dir, "*_proptime.csv")):
+        df = pd.read_csv(path)
+        proptime_dfs.append(df)
+
+    if not peck_dfs or not proptime_dfs:
+        print("No result CSVs found in output_dir — run ComputeMetrics first.")
+        return
+
+    PeckRateDF = pd.concat(peck_dfs, ignore_index=True)
+    SRIDF = pd.concat(proptime_dfs, ignore_index=True)
+
+    PeckRateDF["AbsError"] = (PeckRateDF["GTFeedRate"] - PeckRateDF["PredFeedRate"]).abs()
+    SRIDF["AbsError"] = (SRIDF["GT_PropTime"] - SRIDF["Pred_PropTime"]).abs()
+
+    # ------------------------------------------------------------------
+    # Build ordered name list: alphabetical, Human_Benchmark last
+    # ------------------------------------------------------------------
+    all_names = sorted(PeckRateDF["Name"].unique().tolist())
+    if "Human_Benchmark" in all_names:
+        all_names.remove("Human_Benchmark")
+        all_names.append("Human_Benchmark")
+
+    # ------------------------------------------------------------------
+    # Color + marker assignment
+    # ------------------------------------------------------------------
+    _known_colors = {
+        "CORVID":   "#FF5722",   # deep orange
+        "COBRA":    "#FF5722",   # same as CORVID
+        "MegaDesc": "#1E88E5",   # blue
+        "Random":   "#9C27B0",   # purple
+        "Human_Benchmark": "#000000",  # black
+    }
+    _known_markers = {
+        "CORVID":   "s",
+        "COBRA":    "s",
+        "MegaDesc": "o",
+        "Random":   "^",
+        "Human_Benchmark": "*",
+    }
+    _fallback_colors = [c["color"] for c in plt.rcParams["axes.prop_cycle"]]
+    _fallback_idx = 0
+
+    def _get_style(name):
+        nonlocal _fallback_idx
+        for key in _known_colors:
+            if key in name:
+                return _known_colors[key], _known_markers.get(key, "o")
+        color = _fallback_colors[_fallback_idx % len(_fallback_colors)]
+        _fallback_idx += 1
+        return color, "D"
+
+    colors  = []
+    markers = []
+    for name in all_names:
+        c, m = _get_style(name)
+        colors.append(c)
+        markers.append(m)
+
+    # ------------------------------------------------------------------
+    # Apply categorical ordering to both DataFrames
+    # ------------------------------------------------------------------
+    PeckRateDF["Name"] = pd.Categorical(PeckRateDF["Name"], categories=all_names, ordered=True)
+    SRIDF["Name"]      = pd.Categorical(SRIDF["Name"],      categories=all_names, ordered=True)
+
+    # ------------------------------------------------------------------
+    # Common box style
+    # ------------------------------------------------------------------
+    box_props     = dict(facecolor="lightsteelblue", color="black", alpha=0.3)
+    median_props  = dict(color="black", linewidth=2)
+    whisker_props = dict(color="gray")
+    cap_props     = dict(color="gray")
+    flier_props   = dict(marker="o", markersize=4, linestyle="none",
+                         markerfacecolor="gray", alpha=0.5)
+
+    fig, axes = plt.subplots(1, 4, figsize=(24, 6))
+    ax1, ax2, ax3, ax4 = axes
+
+    # ------------------------------------------------------------------
+    # Helper: get y-position map after boxplot is drawn
+    # ------------------------------------------------------------------
+    def _ypos_map(ax):
+        labels = ax.get_yticklabels()
+        return {t.get_text(): t.get_position()[1] for t in labels}
+
+    def _scatter_overlay(ax, df, xcol, ypos_map, is_human_col="Name"):
+        for i, name in enumerate(all_names):
+            subset = df[df["Name"] == name]
+            if subset.empty:
+                continue
+            y_pos = ypos_map.get(str(name))
+            if y_pos is None:
+                continue
+            kw = dict(alpha=0.9, edgecolors="k", facecolors=colors[i],
+                      s=40, marker=markers[i], linewidths=2) \
+                 if name == "Human_Benchmark" else \
+                 dict(alpha=0.6, edgecolors="k", facecolors=colors[i],
+                      s=30, marker=markers[i])
+            ax.scatter(subset[xcol], [y_pos] * len(subset), **kw)
+
+    # ------------------------------------------------------------------
+    # Panel A: Feed Rate Absolute Error boxplot
+    # ------------------------------------------------------------------
+    PeckRateDF.boxplot(column="AbsError", by="Name", ax=ax1,
+                       vert=False, patch_artist=True,
+                       boxprops=box_props, medianprops=median_props,
+                       whiskerprops=whisker_props, capprops=cap_props,
+                       flierprops=flier_props)
+    _scatter_overlay(ax1, PeckRateDF, "AbsError", _ypos_map(ax1))
+    ax1.set_xlabel("Feed Rate Absolute Error (pecks/min)", fontsize=16)
+    ax1.set_ylabel("Algorithm", fontsize=16)
+    ax1.text(0.0, 1.02, "A", transform=ax1.transAxes,
+             fontsize=20, fontweight="bold", va="bottom", ha="left")
+    ax1.grid(True, linestyle="--", alpha=0.5)
+
+    # ------------------------------------------------------------------
+    # Panel B: PropTime Absolute Error boxplot
+    # ------------------------------------------------------------------
+    SRIDF.boxplot(column="AbsError", by="Name", ax=ax2,
+                  vert=False, patch_artist=True,
+                  boxprops=box_props, medianprops=median_props,
+                  whiskerprops=whisker_props, capprops=cap_props,
+                  flierprops=flier_props)
+    _scatter_overlay(ax2, SRIDF, "AbsError", _ypos_map(ax2))
+    ax2.set_yticklabels([])
+    ax2.set_xlabel("Co-occurrence Rate Absolute Error", fontsize=16)
+    ax2.set_ylabel("")
+    ax2.text(0.0, 1.02, "B", transform=ax2.transAxes,
+             fontsize=20, fontweight="bold", va="bottom", ha="left")
+    ax2.grid(True, linestyle="--", alpha=0.5)
+
+    # ------------------------------------------------------------------
+    # Panel C: GT vs Pred Feed Rate scatter
+    # ------------------------------------------------------------------
+    for i, name in enumerate(all_names):
+        subset = PeckRateDF[PeckRateDF["Name"] == name]
+        if subset.empty:
+            continue
+        kw = dict(alpha=0.9, edgecolors="k", facecolors=colors[i],
+                  s=50, marker=markers[i], linewidths=2, label=name) \
+             if name == "Human_Benchmark" else \
+             dict(alpha=0.7, edgecolors="k", facecolors=colors[i],
+                  s=50, marker=markers[i], label=name)
+        ax3.scatter(subset["GTFeedRate"], subset["PredFeedRate"], **kw)
+        if len(subset) > 1:
+            z = np.polyfit(subset["GTFeedRate"], subset["PredFeedRate"], 1)
+            x_line = np.linspace(subset["GTFeedRate"].min(), subset["GTFeedRate"].max(), 100)
+            ax3.plot(x_line, np.poly1d(z)(x_line),
+                     color=colors[i], linestyle="--", alpha=0.8, linewidth=2)
+    ax3.set_xlabel("Ground Truth Feed Rate (pecks/min)", fontsize=16)
+    ax3.set_ylabel("Predicted Feed Rate (pecks/min)", fontsize=16)
+    ax3.text(0.0, 1.02, "C", transform=ax3.transAxes,
+             fontsize=20, fontweight="bold", va="bottom", ha="left")
+    ax3.grid(True, linestyle="--", alpha=0.5)
+
+    # ------------------------------------------------------------------
+    # Panel D: GT vs Pred PropTime scatter
+    # ------------------------------------------------------------------
+    for i, name in enumerate(all_names):
+        subset = SRIDF[SRIDF["Name"] == name]
+        if subset.empty:
+            continue
+        kw = dict(alpha=0.9, edgecolors="k", facecolors=colors[i],
+                  s=50, marker=markers[i], linewidths=2) \
+             if name == "Human_Benchmark" else \
+             dict(alpha=0.7, edgecolors="k", facecolors=colors[i],
+                  s=50, marker=markers[i])
+        ax4.scatter(subset["GT_PropTime"], subset["Pred_PropTime"], **kw)
+        if len(subset) > 1:
+            z = np.polyfit(subset["GT_PropTime"], subset["Pred_PropTime"], 1)
+            x_line = np.linspace(subset["GT_PropTime"].min(), subset["GT_PropTime"].max(), 100)
+            ax4.plot(x_line, np.poly1d(z)(x_line),
+                     color=colors[i], linestyle="--", alpha=0.8, linewidth=2)
+    ax4.set_xlabel("Ground Truth Co-occurrence Rate", fontsize=16)
+    ax4.set_ylabel("Predicted Co-occurrence Rate", fontsize=16)
+    ax4.text(0.0, 1.02, "D", transform=ax4.transAxes,
+             fontsize=20, fontweight="bold", va="bottom", ha="left")
+    ax4.grid(True, linestyle="--", alpha=0.5)
+
+    # ------------------------------------------------------------------
+    # Shared formatting
+    # ------------------------------------------------------------------
+    for ax in axes:
+        ax.set_title("")
+        ax.tick_params(axis="both", which="major", labelsize=14)
+    fig.suptitle("")
+
+    handles, labels = ax3.get_legend_handles_labels()
+    legend = fig.legend(handles, labels, loc="center left",
+                        bbox_to_anchor=(0.93, 0.5), fontsize=14, frameon=True)
+    for text in legend.get_texts():
+        if text.get_text() == "Human_Benchmark":
+            text.set_fontweight("bold")
+
+    plt.tight_layout()
+    plt.subplots_adjust(right=0.92, wspace=0.25)
+
+    save_path = os.path.join(output_dir, "benchmark_results.png")
+    plt.savefig(save_path, format="png", bbox_inches="tight", dpi=300)
+    print(f"Plot saved to {save_path}")
+    plt.show()
 
 
 if __name__ == "__main__":

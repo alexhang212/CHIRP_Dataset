@@ -7,12 +7,10 @@ Alex Hoi Hang Chan, Neha Singhal, Onur Kocahan, Andrea Meltzer, Saverio Lubrano,
 
 
 ## Dataset Download
-Here is the download [link]() for the dataset.
-
-**[LINK IS CURRENTLY EMPTY, WILL BE READY IN A FEW DAYS -- Alex, March 26, 2026]**
+Here is the download [link](https://doi.org/10.17617/3.GVO4LG) for the dataset.
 
 ## What is CHIRP?
-CHIRP is a dataset on Siberian Jays (*Perisoreus infaustus*) living in the Swedish Laplands. We the goal of long-tem individual level behavioural monitoring, we provide dataset for a diverse set of computer vision tasks:
+CHIRP is a dataset on Siberian Jays (*Perisoreus infaustus*) living in the Swedish Laplands. With the goal of long-tem individual level behavioural monitoring, we provide dataset for a diverse set of computer vision tasks:
 - [Video re-identification](docs/VideoReID.md) (182 individuals, 16,110 video clips)
 - [Action Recognition](docs/ActionRecognition.md) (3 behaviours, 1,387 video clips)
 - [2D keypoint estimation](docs/Keypoints2D.md) (13 keypoints, 1,178 instances)
