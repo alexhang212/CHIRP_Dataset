@@ -5,6 +5,8 @@
 
 Alex Hoi Hang Chan, Neha Singhal, Onur Kocahan, Andrea Meltzer, Saverio Lubrano, Miya Warrington, Michael Griesser*, Fumihiro Kano*, Hemal Naik*
 
+## News
+- Preprint for the paper is up! Check it out [here](https://arxiv.org/abs/2603.25524)
 
 ## Dataset Download
 Here is the download [link](https://doi.org/10.17617/3.GVO4LG) for the dataset.
