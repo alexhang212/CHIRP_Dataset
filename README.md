@@ -52,3 +52,15 @@ hoi-hang.chan[at]uni-konstanz.de
 ## Acknowledgements
 This work is funded by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) under Germany’s Excellence Strategy—EXC 2117—422037984, DFG project 15990824, DFG Heisenberg Grant no. GR 4650/21 and DFG project Grant no. FP589/20. MHW is supported by an Oxford
 Brookes University Emerging Leaders Research Fellowship. We thank Francesca Frisoni and Jyotsna Bellary for doing additional annotations for the application specific benchmark. We thank all the researchers and field workers who worked in the Luondua Boreal Field Station over the years for their contributions to the long-term dataset.
+
+## Citation
+If you use the dataset, please cite the following:
+
+```bibtex
+@inproceedings{chan2026chirp,
+  title={CHIRP dataset: towards long-term, individual-level, behavioral monitoring of bird populations in the wild},
+  author={Chan, Alex Hoi Hang and Singhal, Neha and Kocahan, Onur and Meltzer, Andrea and Lubrano, Saverio and Warrington, Miyako H and Griesser, Michael and Kano, Fumihiro and Naik, Hemal},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={18428--18439},
+  year={2026}}
+```
